@@ -6,8 +6,3 @@ DerivedData/
 xcuserdata/
 build/
 dist/
-stub/prebuilt/*.exe
-
-# Resources/ScreensaverStub.exe is committed as a tiny text placeholder so
-# `swift build` works on a fresh clone. After running stub/build_stub.sh the
-# file is replaced locally with the real ~900 KB PE — do not commit that.

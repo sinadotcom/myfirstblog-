@@ -80,9 +80,6 @@ private struct ExportBar: View {
             if vm.lastExportURL != nil {
                 HStack {
                     Button("Reveal in Finder") { vm.revealInFinder() }
-                    if vm.winePreviewAvailable {
-                        Button("Preview with Wine") { vm.previewWithWine() }
-                    }
                     Spacer()
                 }
                 .font(.callout)

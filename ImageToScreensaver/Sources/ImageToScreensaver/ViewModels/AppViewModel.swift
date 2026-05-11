@@ -14,7 +14,6 @@ final class AppViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     var canExport: Bool { !images.isEmpty && !isBuilding }
-    var winePreviewAvailable: Bool { WinePreview.isAvailable }
 
     // MARK: - Image management
 
@@ -89,12 +88,6 @@ final class AppViewModel: ObservableObject {
     func revealInFinder() {
         guard let url = lastExportURL else { return }
         NSWorkspace.shared.activateFileViewerSelecting([url])
-    }
-
-    func previewWithWine() {
-        guard let url = lastExportURL else { return }
-        do { try WinePreview.preview(scrURL: url) }
-        catch { errorMessage = error.localizedDescription }
     }
 }
 

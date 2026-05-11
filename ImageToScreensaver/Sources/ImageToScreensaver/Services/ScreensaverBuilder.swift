@@ -25,24 +25,13 @@ struct ScreensaverBuilder {
 
     static func locateStub() -> URL? {
         // SwiftPM bundles `.copy` resources flat into Bundle.module.
-        let candidates: [URL?] = [
-            Bundle.module.url(forResource: "ScreensaverStub", withExtension: "exe"),
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                .appendingPathComponent("Sources/ImageToScreensaver/Resources/ScreensaverStub.exe")
-        ]
-        for case let url? in candidates {
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
-            // Reject the placeholder text file shipped in the repo before the
-            // real PE has been compiled by stub/build_stub.sh.
-            if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-               let size = (attrs[.size] as? NSNumber)?.intValue,
-               size >= 1024,
-               let header = try? FileHandle(forReadingFrom: url).read(upToCount: 2),
-               header == Data([0x4D, 0x5A]) {     // "MZ" PE magic
-                return url
-            }
+        if let url = Bundle.module.url(forResource: "ScreensaverStub", withExtension: "exe") {
+            return url
         }
-        return nil
+        // Fallback for `swift run` from the package directory during development.
+        let dev = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("Sources/ImageToScreensaver/Resources/ScreensaverStub.exe")
+        return FileManager.default.fileExists(atPath: dev.path) ? dev : nil
     }
 
     /// Build a `.scr` at `outputURL`. Calls `progress` on the main actor.

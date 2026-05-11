@@ -1,43 +1,28 @@
 # Build instructions
 
-Two artefacts get built:
+**You almost certainly don't need this file.** The Windows player binary is
+already prebuilt and committed at
+`ImageToScreensaver/Sources/ImageToScreensaver/Resources/ScreensaverStub.exe`.
+Just `cd ImageToScreensaver && swift run` and you're done.
 
-1. `ScreensaverStub.exe` — Windows PE compiled on macOS with mingw-w64.
-2. `ImageToScreensaver` — macOS SwiftUI app built with SwiftPM (or Xcode).
+This file is for people who want to rebuild the Windows-side stub from
+source — e.g. to audit it, modify it, or change the slideshow player logic.
 
-The Windows stub must be built **before** the macOS app so SwiftPM can bundle
-it as a resource.
-
-## 1. Prerequisites
+## Rebuild the Windows stub (only if you want to)
 
 ```bash
-# Xcode CLT (Swift toolchain)
-xcode-select --install
-
-# mingw-w64 (cross-compiles 64-bit Windows binaries from macOS)
 brew install mingw-w64
-
-# Optional: Wine, only if you want to preview .scr files on macOS
-brew install --cask --no-quarantine wine-stable
-```
-
-## 2. Build the Windows stub
-
-```bash
 cd stub
 ./build_stub.sh
 ```
 
-`build_stub.sh` invokes `x86_64-w64-mingw32-g++`, statically links libgcc,
-libstdc++ and the C runtime, and links against `gdiplus`, `shcore`, `ole32`,
-`uuid`, `comctl32`, `gdi32`, `user32`, `kernel32`. The resulting
-`ScreensaverStub.exe` depends only on standard Windows system DLLs that ship
-with Windows 7 and later (we target Windows 10 / 11).
+This cross-compiles `screensaver_stub.cpp` with `x86_64-w64-mingw32-g++`,
+statically links the C/C++ runtime, and links against the standard Windows
+system DLLs (gdi32, user32, gdiplus, etc.). The script:
 
-Outputs:
-
-- `stub/prebuilt/ScreensaverStub.exe`
-- `ImageToScreensaver/Sources/ImageToScreensaver/Resources/ScreensaverStub.exe` (auto-copied)
+1. Writes `stub/prebuilt/ScreensaverStub.exe`.
+2. Copies it into the SwiftPM resources directory so the next `swift build`
+   bundles the new version.
 
 Verify:
 
@@ -46,29 +31,26 @@ file stub/prebuilt/ScreensaverStub.exe
 # → PE32+ executable (GUI) x86-64, for MS Windows
 ```
 
-## 3. Build & run the macOS app
+## Build the macOS app
 
-### Via SwiftPM (no Xcode project required)
+### SwiftPM
 
 ```bash
 cd ImageToScreensaver
 swift build -c release
-swift run                    # launches the app
+swift run
 ```
 
-### Via Xcode
+### Xcode
 
 ```bash
 cd ImageToScreensaver
-open Package.swift           # opens in Xcode; pick "My Mac" and ⌘R
+open Package.swift
 ```
 
-Xcode picks up SwiftPM packages natively. The `Resources/ScreensaverStub.exe`
-file is bundled into the app via the `.copy` rule in `Package.swift`.
+Then ⌘R.
 
-## 4. Package as a redistributable `.app` (optional)
-
-`swift build` produces a CLI-style binary. To wrap it as a `.app` bundle:
+## Package as a redistributable `.app` (optional)
 
 ```bash
 cd ImageToScreensaver
@@ -89,7 +71,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleName</key>                  <string>Image to Screensaver</string>
   <key>CFBundleShortVersionString</key>    <string>1.0.0</string>
   <key>CFBundleVersion</key>               <string>1</string>
-  <key>LSMinimumSystemVersion</key>        <string>13.0</string>
+  <key>LSMinimumSystemVersion</key>        <string>14.0</string>
   <key>NSHighResolutionCapable</key>       <true/>
   <key>CFBundlePackageType</key>           <string>APPL</string>
 </dict>
@@ -98,32 +80,22 @@ PLIST
 open "$APP"
 ```
 
-For Gatekeeper-clean distribution you can codesign + notarize:
+For Gatekeeper-clean distribution, codesign + notarize as usual.
 
-```bash
-codesign --deep --force --options runtime \
-  --sign "Developer ID Application: Your Name (TEAMID)" "$APP"
-xcrun notarytool submit "$APP.zip" --apple-id ... --wait
-xcrun stapler staple "$APP"
-```
-
-(Signing is optional for local use; the unsigned binary runs after the usual
-`Open Anyway` prompt in System Settings → Privacy & Security.)
-
-## 5. Clean
+## Clean
 
 ```bash
 rm -rf ImageToScreensaver/.build ImageToScreensaver/.swiftpm
 rm -f  stub/prebuilt/ScreensaverStub.exe
-rm -f  ImageToScreensaver/Sources/ImageToScreensaver/Resources/ScreensaverStub.exe
+# Do NOT delete the committed Resources/ScreensaverStub.exe unless you plan
+# to rebuild it; without it the app cannot produce .scr files.
 ```
 
 ## Troubleshooting
 
-| Symptom | Cause / Fix |
+| Symptom | Fix |
 | --- | --- |
-| App alerts "Bundled ScreensaverStub.exe is missing" | You haven't run `stub/build_stub.sh`, or the file is still the text placeholder. Run the script and rebuild. |
-| `x86_64-w64-mingw32-g++: command not found` | Run `brew install mingw-w64`. On Apple Silicon ensure `/opt/homebrew/bin` is in PATH. |
-| Generated `.scr` shows "no embedded slideshow payload" on Windows | Footer wasn't appended — usually the macOS export failed mid-way. Re-export. |
-| Wine preview fails with codec errors | Older Wine builds lack GDI+ support. `brew upgrade --cask wine-stable` or test directly on Windows. |
-| Windows SmartScreen warns about an unsigned `.scr` | Expected for unsigned executables. To remove the warning, codesign with a real Authenticode certificate before distributing. |
+| App alerts "Bundled ScreensaverStub.exe is missing" | The resource was deleted. Restore from git (`git checkout -- ImageToScreensaver/Sources/ImageToScreensaver/Resources/ScreensaverStub.exe`) or rebuild via `stub/build_stub.sh`. |
+| `x86_64-w64-mingw32-g++: command not found` | Run `brew install mingw-w64`. (Only needed if rebuilding the stub.) |
+| Generated `.scr` shows "no embedded slideshow payload" on Windows | Footer wasn't appended — export failed mid-way. Re-export. |
+| Windows SmartScreen warns about an unsigned `.scr` | Expected for unsigned binaries. Sign with an Authenticode certificate to remove it. |
